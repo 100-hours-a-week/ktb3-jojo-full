@@ -8,39 +8,51 @@ import java.util.List;
 
 //직접 생성 안함
 abstract public class Monster {
-    String name;
+    public final String name;
     int hp; //체력 - 떨엉지면 죽음
     int mp; //스킬 사용 시 스킬의 공격력만큼 감소
+    String type;
     int defensePower;
+    boolean isDefending;
     List<AttackSkill> attackSkills;
     List<DefenseSkill> defenseSkills;
 
-    public Monster(String name, int mp, int defensePower
-//            , List<AttackSkill> attackSkills, List<DefenseSkill> defenseSkills
-    ) {
+    public Monster(String name, int hp, int mp, int defensePower) {
         this.name = name;
-        this.hp = 1000;
+        this.hp = hp;
         this.mp = mp;
         this.defensePower = defensePower;
         this.attackSkills = new ArrayList<>(2);
         this.defenseSkills = new ArrayList<>(1);
+        this.isDefending = false;
         //TODO: 이 부분 좀 더 고민해보기
-//        Skill defenseSkill = new Skill("defenseSkill", 100, "defense");
-//        Skill attackSkill = new Skill("attackSkill", 100, "defense");
-//        skills.add(defenseSkill);
-//        skills.add(attackSkill);
     }
 
+
+    //getter
+    public int getHp(){ return this.hp;}
+    public int getMp(){ return this.mp;}
+    public int getDefensePower(){ return this.defensePower;}
+    public List<AttackSkill> getAttackSkills(){ return this.attackSkills;}
+    public List<DefenseSkill> getDefenseSkills(){ return this.defenseSkills;}
+
+
     //method
-    void takeDamage(int damage){
-        this.hp -= damage;
+    public void takeDamage(int damage){
+        if (!isDefending){
+            this.hp -= damage;
+        }
+        this.setDefending(false);
     };
 
-    boolean isAlive(){
+    public void setDefending(boolean state){
+        this.isDefending = state;
+    }
+
+    public boolean isAlive(){
         return this.hp > 0;
     };
 
-    public abstract boolean attack(ElementalMonster target, int skillIdx);
-    public abstract boolean defense(ElementalMonster target, int skillIdx);
-
+    public abstract boolean attack(Monster target, int skillIdx);
+    public abstract boolean defense(Monster target, int skillIdx);
 }
