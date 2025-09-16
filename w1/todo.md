@@ -11,11 +11,30 @@
 ---
 ## ?? - solved 된 경우 체크
 - [ ] Skill 클래스에서 record class 로 변경을 고려하라는 경고 문구
-- [ ] private / public / default 설계 방법 (public+final vs private+getter 의 차이점 ?)
+- [x] private / public / default 설계 방법 (public+final vs private+getter 의 차이점 ?)
+  >   => final 사용 시, ‘값의 재할당’을 막아주는 것이라는 점에서 getter 와 차이가 있다.    
+  객체의 값을 수정 불가하도록 막기 위해 final 을 사용하면 분명 문제가 발생.    
+  꺼내서 보기만 하는 용도면, private 으로 선언한 변수에 getter 를 사용하는 것이 맞을 것 같다.   
+  [강의자료 - Type 참고]
+---
+
+
 - [ ] 따로 공용 메서드 분리하는 방법 있나 찾아보기
+  > => Util 클래스 만들어서 그 안에 static 한 메서드들 저장해두는 방식이 존재.   
+  / 하지만 위 방법은 OOP 가 아님. 종속성을 커지게 하는 안티패턴인 듯 싶다.    
+  해결 방안은 무엇이 있을까 : 1. 해당 클래스 내에서의 중복 메서드는 따로 분리하기 / 2. abstract 사용해서 공용 메서드는 정리하기 ..?    
+  코드를 중복으로 작성하는 것을 꺼려서 계속 이런 것을 고민하는 것 같다. 어떤 것이 좋을지는 모르겠!!   
+---
+
+
 - [ ] attack 과 같은 경우 .. monster 에서 해야하나 game 에서 처리해야하나 헷갈림
 - [ ] 상속 기준 - 불/물/땅 타입의 경우 저렇게 class 따로 만드는 것의 이점 찾아보기
-- [ ] 클래스에 들어가야 하는 로직의 범위 고려 (player 선택 모든 로직이 player 클래스 안에 있는 것이 좋은가?)
+  > => 원래의 의도 : 불 / 물 / 땅 타입 포켓몬의 메서드가 추가될 것을 고려해 따로 만들었었다.    
+  elementalType 을 달리해서 이들을 분리했어야 했는지 고민 (아직까지는 저 방식의 이점이 체감되지 않는다.)   
+---
+
+
+- [ ] 클래스에 들어가야 하는 로직의 범위 고려 (player 선택 모든 로직이 player 클래스 안에 있는 것이 좋은가? or game 별로 선택하는거니까 game 에 ?)
 - [ ] abstract 시 type 선정을 부모로 ? 자식으로 ?
 - [ ] Monster vs ElementalMonster - 다른 부류 Monster 생기는 것 고려해서 이렇게 상속 구조 잡았는데, 더 좋은 방법이 있을지 .. 
   처음에 elementType 필드를 ElementalMonster 에만 넣었다가 game 클래스에서 둘의 사용이 꼬여버려 문제가 있었다.
