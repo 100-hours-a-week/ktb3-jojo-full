@@ -9,11 +9,10 @@ import java.util.Scanner;
 public class Player {
     List<Monster> myMonsters;
     Monster currentMonster; //현재 사용 중인 몬스터
-    private Scanner scanner;
 
     public Player() {
         this.myMonsters = new ArrayList<>(2);
-        this.scanner = new Scanner(System.in);
+//        this.scanner = new Scanner(System.in);
 //        this.currentMonster = myMonsters.getFirst();
     }
 
@@ -33,20 +32,13 @@ public class Player {
         return this.currentMonster;
     }
 
-    public void switchMonster() {
-        if (myMonsters.size() <= 1) {System.out.println("교체할 몬스터가 없습니다."); return;}
-
-        System.out.println("교체할 포켓몬을 선택하세요:");
-        for (int i = 0; i < myMonsters.size(); i++) {
-            if (myMonsters.get(i) != currentMonster) {
-                System.out.println((i + 1) + ". " + myMonsters.get(i).name);
-            }
-        }
-        int choice = scanner.nextInt() - 1;
+    public boolean switchMonster(int choice) {
+        //정상적으로 종료 시 true
         if (choice >= 0 && choice < myMonsters.size() && myMonsters.get(choice) != currentMonster) {
             this.currentMonster = myMonsters.get(choice);
-            System.out.println(this.currentMonster.name + "으로 포켓몬을 교체했습니다.");
-        }
+            return true; //정상적 종료
+        };
+        return false;
     }
 
 }

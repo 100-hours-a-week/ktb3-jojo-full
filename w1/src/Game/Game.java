@@ -63,6 +63,36 @@ public class Game {
         scanner.close();
     }
 
+    //포켓몬 switch
+    void getSwitchInput(){
+        List<Monster> candidateMonsters = player.getMyMonsters();
+        Monster currentMonster = player.getCurrentMonster();
+        if (candidateMonsters.size() <= 1){
+            System.out.println("교체할 몬스터가 없습니다.");
+            return;
+        }
+
+
+        System.out.println("교체할 포켓몬을 선택하세요:");
+
+        for (int i = 0; i < candidateMonsters.size(); i++) {
+            if (candidateMonsters.get(i) != currentMonster) {
+                System.out.println((i + 1) + ". " + candidateMonsters.get(i).name);
+            }
+        }
+        int choice = scanner.nextInt() - 1;
+
+        boolean isSwitched = player.switchMonster(choice);
+
+        if (!isSwitched){
+            System.out.println("비정상적인 접근입니다.");
+            return;
+        }
+
+        System.out.println("정상적으로 교체됐습니다.");
+
+    }
+
     private void battle(ElementalMonster enemyMonster) {
         while (true) {
             // 게임 승패 조건 체크
@@ -72,7 +102,7 @@ public class Game {
                     break;
                 } else {
                     //교체
-                    player.switchMonster();
+                    this.getSwitchInput();
                 }
             }
             if (!enemyMonster.isAlive()) {
@@ -90,9 +120,6 @@ public class Game {
         }
         endGame(enemyMonster);
     }
-
-//    public void switchMonster() {
-//    }
 
     private void displayStatus(ElementalMonster enemyMonster) {
         System.out.println("\n----<현재 상태>-----");
@@ -128,8 +155,7 @@ public class Game {
         }
 
         if (choice == 2){
-            player.switchMonster();
-
+            this.getSwitchInput();
         }
 
         System.out.println("사용할 스킬을 선택하세요:");
