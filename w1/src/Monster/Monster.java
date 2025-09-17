@@ -11,7 +11,6 @@ abstract public class Monster {
     public final String name;
     int hp; //체력 - 떨엉지면 죽음
     int mp; //스킬 사용 시 스킬의 공격력만큼 감소
-    String type;
     int defensePower;
     boolean isDefending;
     List<AttackSkill> attackSkills;

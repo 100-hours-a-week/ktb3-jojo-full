@@ -42,10 +42,12 @@
     필드를 따로 만들었는데, 추후 ElementalMonster 를 비롯한 대분류 몬스터 어느 것이든 게임에서 사용할 수 있을 것이니 게임에서 사용하는 몬스터의 타입을 ```Arraylist<Monster>``` 로 지정했는데,   
     뒤에서 ElementalMonster 들 끼리의 우위를 반환하는 함수에서 문제가 발생했다. (잘못된 abstract 클래스 사용) => elementalType 을 type 으로 변경, 추상 클래스 필드에도 추가. 
     추후 ElementalMonster 로 타입이 지정된 부분은 Monster 로 걷어냈다.
+
+  > 나름의 해결 ... : (업캐스팅과 다운캐스팅 활용) 우선 Monster 로 업캐스팅, 후에 instanceOf 로 타입 확인 후 같은 타입일 시 다운캐스팅하여 isWinTarget 계산,   
+  > 다른 대분류 몬스터면 무조건 1로 
 ---
 
 
 - [ ] Monster vs ElementalMonster - 다른 부류 Monster 생기는 것 고려해서 이렇게 상속 구조 잡았는데, 더 좋은 방법이 있을지 .. 
   처음에 elementType 필드를 ElementalMonster 에만 넣었다가 game 클래스에서 둘의 사용이 꼬여버려 문제가 있었다.
-
-- [ ] 기존 기획은 동시에 공격 / 방어가 가능한 것이었다. 하지만 공격을 동시에 진행하면 hp 와 mp 갱신에 있어서 문제가 있을 것 같아 기획을 수정했다. 
+- [ ] 기존 기획은 동시에 공격 / 방어가 가능한 것이었다. 하지만 공격을 동시에 진행하면 hp 와 mp 갱신에 있어서 문제가 있을 것 같아 기획을 수정했다.
