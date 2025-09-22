@@ -4,10 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 import Monster.*;
 import Player.Player;
@@ -21,13 +18,14 @@ public class Game {
     private List<ElementalMonster> allMonsters; // 모든 몬스터 리스트
     private View view;
     //thread 실행
-    private ExecutorService gameExecutor;
     private ExecutorService timerExecutor;
+    private ExecutorService inputExecutor;
     //공유 필드
     private volatile boolean timeout;
     private volatile int turnId;
-    private volatile boolean turnOpen; //턴 열려있는지
-    private Future<Boolean> future;
+    //future 필드
+    private Future<Boolean> timerFuture;
+    private Future<Integer> inputFuture;
 
 
     public Game() {
@@ -36,7 +34,6 @@ public class Game {
         this.view = new View();
         this.timeout = false;
         this.turnId = 0;
-        this.turnOpen = false;
 
         this.player = new Player();
         this.allMonsters = new ArrayList<>(10);
@@ -44,7 +41,7 @@ public class Game {
         allMonsters.add(new WaterMonster("꼬부기", 110, 90, 70));
         allMonsters.add(new GroundMonster("디그다", 120, 80, 50));
 
-        this.gameExecutor = Executors.newFixedThreadPool(3);
+        this.inputExecutor = Executors.newSingleThreadExecutor();
         this.timerExecutor = Executors.newSingleThreadExecutor();
     }
 
@@ -54,9 +51,9 @@ public class Game {
         return timeout;
     }
 
-    public boolean isTurnOpen() {
-        return turnOpen;
-    }
+//    public boolean isTurnOpen() {
+//        return turnOpen;
+//    }
 
     public int getTurnId() {
         return turnId;
@@ -65,9 +62,9 @@ public class Game {
     public void setTimeout(boolean timeout) {
         this.timeout = timeout;
     }
-    public void setTurnOpen(boolean turnOpen) {
-        this.turnOpen = turnOpen;
-    }
+//    public void setTurnOpen(boolean turnOpen) {
+//        this.turnOpen = turnOpen;
+//    }
 
 
     public void startGame() throws ExecutionException, InterruptedException {
@@ -160,19 +157,25 @@ public class Game {
     private void startTurn() {
         turnId++;
         timeout = false;
-        turnOpen = true;
+    }
 
+    private void startMultiThread(){
         //타이머 실행
         TurnTimer runTimer = new TurnTimer(this, this.turnId);
-        this.future = timerExecutor.submit(runTimer);
+        this.timerFuture = timerExecutor.submit(runTimer);
+
+        //input 도 따로 스레드를
+        this.inputFuture = inputExecutor.submit(() -> {
+            int choice = scanner.nextInt() - 1; // 1-based → 0-based
+            return choice;
+        });
     }
 
 
     private void handlePlayerTurn(ElementalMonster enemyMonster) throws ExecutionException, InterruptedException {
+        //init 시 timeOut 초기화 및 상대 동작 정리
         this.startTurn();
-
         int enemyChoice = random.nextInt(2); // 0: 방어, 1: 대기
-
         if (enemyChoice == 0) {
             Monster currentMonster = player.getCurrentMonster();
             enemyMonster.defense(currentMonster, 0);
@@ -187,23 +190,27 @@ public class Game {
         }
         System.out.print("스킬 번호: ");
 
-        if (!future.get()){ //false -> 타임아웃!
+        //이때부터 스레드 시작 (input + timer 동시)
+
+        this.startMultiThread();
+        Integer skillChoice = null;
+
+        //input 에도 타이머를 설정
+        try{
+            skillChoice = inputFuture.get(10, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
             System.out.println("!타임아웃!");
-            this.setTurnOpen(false);
+            this.setTimeout(true);
+            timerFuture.cancel(true);
             return;
         }
 
-        int skillChoice = scanner.nextInt() - 1;
 
 
         if (0 <= skillChoice && skillChoice < skills.size()){
-            this.setTurnOpen(false);
+            this.setTimeout(true);
+            timerFuture.cancel(true);
         }
-
-        if (isTurnOpen()) {
-            this.setTurnOpen(false);
-        };
-
 
         boolean isSuccess = currentMonster.attack(enemyMonster, skillChoice);
         if (!isSuccess){  System.out.println("MP가 부족하여 스킬을 사용할 수 없습니다.");}
@@ -211,7 +218,6 @@ public class Game {
 
     private void handleEnemyTurn(ElementalMonster enemyMonster) throws ExecutionException, InterruptedException {
         this.startTurn();
-
         int enemyChoice = random.nextInt(2); // 0: 공격, 1: 대기
 
         Monster currentMonster = player.getCurrentMonster();
@@ -223,23 +229,24 @@ public class Game {
         }
         System.out.print("스킬 번호: ");
 
-        if (future.get()){
+        this.startMultiThread();
+
+        Integer skillChoice = null;
+
+        //input 에도 타이머를 설정
+        try{
+            skillChoice = inputFuture.get(10, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
             System.out.println("!타임아웃!");
-            this.setTurnOpen(false);
-            return;
+        } finally {
+            this.setTimeout(true);
+            timerFuture.cancel(true);
         }
 
-        int skillChoice = scanner.nextInt() - 1;
-
-
-
-        if (0 <= skillChoice && skillChoice < skills.size()){
-            this.setTurnOpen(false);
+        if( skillChoice != null && 0 <= skillChoice && skillChoice < skills.size()){
+            enemyMonster.defense(currentMonster, skillChoice);
         }
 
-        if (isTurnOpen()) {
-            setTurnOpen(false);
-        };
 
         if (enemyChoice == 0) {
             int enemyRandSkill = random.nextInt(2);
