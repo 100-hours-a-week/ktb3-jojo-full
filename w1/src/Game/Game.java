@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import Monster.*;
 import Player.Player;
@@ -15,23 +19,59 @@ public class Game {
     private Scanner scanner;
     private Random random;
     private List<ElementalMonster> allMonsters; // 모든 몬스터 리스트
+    private View view;
+    //thread 실행
+    private ExecutorService gameExecutor;
+    private ExecutorService timerExecutor;
+    //공유 필드
+    private volatile boolean timeout;
+    private volatile int turnId;
+    private volatile boolean turnOpen; //턴 열려있는지
+    private Future<Boolean> future;
+
 
     public Game() {
         this.scanner = new Scanner(System.in);
         this.random = new Random();
+        this.view = new View();
+        this.timeout = false;
+        this.turnId = 0;
+        this.turnOpen = false;
 
         this.player = new Player();
         this.allMonsters = new ArrayList<>(10);
         allMonsters.add(new FireMonster("파이리", 100, 110, 100));
         allMonsters.add(new WaterMonster("꼬부기", 110, 90, 70));
         allMonsters.add(new GroundMonster("디그다", 120, 80, 50));
+
+        this.gameExecutor = Executors.newFixedThreadPool(3);
+        this.timerExecutor = Executors.newSingleThreadExecutor();
     }
 
-    public void startGame() {
-        System.out.println("이곳은 야생의 포켓몬들이 출현하는 대련장입니다.");
 
-        System.out.println("대전에 참여할 두 마리의 몬스터를 선택하세요.");
 
+    public boolean isTimeout() {
+        return timeout;
+    }
+
+    public boolean isTurnOpen() {
+        return turnOpen;
+    }
+
+    public int getTurnId() {
+        return turnId;
+    }
+
+    public void setTimeout(boolean timeout) {
+        this.timeout = timeout;
+    }
+    public void setTurnOpen(boolean turnOpen) {
+        this.turnOpen = turnOpen;
+    }
+
+
+    public void startGame() throws ExecutionException, InterruptedException {
+        view.printStartGameMessage();
 
         for (int i = 0; i < allMonsters.size(); i++) {
             System.out.println((i + 1) + ". " + allMonsters.get(i).name);
@@ -46,12 +86,10 @@ public class Game {
                     player.setCurrentMonster(allMonsters.get(choice));
                 }
             } else {
-                System.out.println("잘못된 번호입니다.");
+                view.printSelectedNumberError();
                 i--;
             }
         }
-
-
         System.out.println("당신은 " + player.getMyMonsters().getFirst().name + "와 " + player.getMyMonsters().get(1).name + "를 선택했습니다.");
 
         //상대 몬스터 생성 (랜덤)
@@ -68,12 +106,11 @@ public class Game {
         List<Monster> candidateMonsters = player.getMyMonsters();
         Monster currentMonster = player.getCurrentMonster();
         if (candidateMonsters.size() <= 1){
-            System.out.println("교체할 몬스터가 없습니다.");
+            view.printNoMonstersToSwitch();
             return;
         }
 
-
-        System.out.println("교체할 포켓몬을 선택하세요:");
+        view.printMonsterToSelect();
 
         for (int i = 0; i < candidateMonsters.size(); i++) {
             if (candidateMonsters.get(i) != currentMonster) {
@@ -85,15 +122,14 @@ public class Game {
         boolean isSwitched = player.switchMonster(choice);
 
         if (!isSwitched){
-            System.out.println("비정상적인 접근입니다.");
+            view.printBasicErrorMessage();
             return;
         }
 
-        System.out.println("정상적으로 교체됐습니다.");
-
+        view.printSwitchedSuccessfully();
     }
 
-    private void battle(ElementalMonster enemyMonster) {
+    private void battle(ElementalMonster enemyMonster) throws ExecutionException, InterruptedException {
         while (true) {
             // 게임 승패 조건 체크
             if (!player.getCurrentMonster().isAlive()) {
@@ -109,97 +145,103 @@ public class Game {
                 break;
             }
 
-            displayStatus(enemyMonster);
+            view.displayStatus(enemyMonster, this.player);
             handlePlayerTurn(enemyMonster);
 
 
             if (enemyMonster.isAlive()) {
-                displayStatus(enemyMonster);
+                view.displayStatus(enemyMonster, this.player);
                 handleEnemyTurn(enemyMonster);
             }
         }
         endGame(enemyMonster);
     }
 
-    private void displayStatus(ElementalMonster enemyMonster) {
-        System.out.println("\n----<현재 상태>-----");
-        System.out.println("(나)" + player.getCurrentMonster().name
-                +"\n(hp: " + player.getCurrentMonster().getHp()
-                +"\n(mp: "+ player.getCurrentMonster().getMp()
-                +"\n(defensePower: "+ player.getCurrentMonster().getDefensePower() +")");
-        System.out.println("\n-------------------");
-        System.out.println("(적)" + enemyMonster.name + " (hp: " + enemyMonster.getHp() + ")");
-        System.out.println("\n-------------------");
+    private void startTurn() {
+        turnId++;
+        timeout = false;
+        turnOpen = true;
+
+        //타이머 실행
+        TurnTimer runTimer = new TurnTimer(this, this.turnId);
+        this.future = timerExecutor.submit(runTimer);
     }
 
-    private void handlePlayerTurn(ElementalMonster enemyMonster) {
+
+    private void handlePlayerTurn(ElementalMonster enemyMonster) throws ExecutionException, InterruptedException {
+        this.startTurn();
+
         int enemyChoice = random.nextInt(2); // 0: 방어, 1: 대기
-        System.out.println("어떤 행동을 하시겠습니까?");
-        System.out.println("1. 공격");
-        System.out.println("2. 몬스터 교체 후 공격");
-        System.out.println("3. 휴식");
-        System.out.print("선택: ");
-
-        int choice = scanner.nextInt();
-
 
         if (enemyChoice == 0) {
             Monster currentMonster = player.getCurrentMonster();
-            List<AttackSkill> skills = currentMonster.getAttackSkills();
             enemyMonster.defense(currentMonster, 0);
         }
 
-        if (!(choice == 1 || choice == 2)){
-            System.out.println("휴식 후 상대 턴으로 돌아갑니다. ");
-            return;
-        }
-
-        if (choice == 2){
-            this.getSwitchInput();
-        }
-
-        System.out.println("사용할 스킬을 선택하세요:");
         Monster currentMonster = player.getCurrentMonster();
         List<AttackSkill> skills = currentMonster.getAttackSkills();
+
+        System.out.println("사용할 스킬을 선택하세요:");
         for (int i = 0; i < skills.size(); i++) {
             System.out.println((i + 1) + ". " + skills.get(i).name+ " / [power] "+ skills.get(i).power);
         }
         System.out.print("스킬 번호: ");
+
+        if (!future.get()){ //false -> 타임아웃!
+            System.out.println("!타임아웃!");
+            this.setTurnOpen(false);
+            return;
+        }
+
         int skillChoice = scanner.nextInt() - 1;
+
+
+        if (0 <= skillChoice && skillChoice < skills.size()){
+            this.setTurnOpen(false);
+        }
+
+        if (isTurnOpen()) {
+            this.setTurnOpen(false);
+        };
+
+
         boolean isSuccess = currentMonster.attack(enemyMonster, skillChoice);
         if (!isSuccess){  System.out.println("MP가 부족하여 스킬을 사용할 수 없습니다.");}
     }
 
-    private void handleEnemyTurn(ElementalMonster enemyMonster) {
-        System.out.println("\n상대 몬스터의 턴입니다.");
+    private void handleEnemyTurn(ElementalMonster enemyMonster) throws ExecutionException, InterruptedException {
+        this.startTurn();
+
         int enemyChoice = random.nextInt(2); // 0: 공격, 1: 대기
 
-        System.out.println("어떤 행동을 하시겠습니까?");
-        System.out.println("1. 방어 태세 돌입");
-        System.out.println("2. 대기");
-        System.out.print("선택: ");
-        int choice = scanner.nextInt();
+        Monster currentMonster = player.getCurrentMonster();
+        List<DefenseSkill> skills = currentMonster.getDefenseSkills();
 
+        System.out.println("사용할 스킬을 선택하세요:");
+        for (int i = 0; i < skills.size(); i++) {
+            System.out.println((i + 1) + ". " + skills.get(i).name+ " / [power] "+ skills.get(i).power);
+        }
+        System.out.print("스킬 번호: ");
 
-        if (choice == 1){
-            Monster currentMonster = player.getCurrentMonster();
-
-            List<DefenseSkill> skills = currentMonster.getDefenseSkills();
-            System.out.println("사용할 스킬을 선택하세요:");
-            for (int i = 0; i < skills.size(); i++) {
-                System.out.println((i + 1) + ". " + skills.get(i).name+ " / [power] "+ skills.get(i).power);
-            }
-            System.out.print("스킬 번호: ");
-            int skillChoice = scanner.nextInt() - 1;
-            boolean isSuccess = currentMonster.defense(enemyMonster, skillChoice);
-            if (!isSuccess) { System.out.println("방어력이 부족하여 스킬을 사용할 수 없습니다."); }
-        }else{
-            System.out.println("대기합니다.");
+        if (future.get()){
+            System.out.println("!타임아웃!");
+            this.setTurnOpen(false);
+            return;
         }
 
-        if (enemyChoice == 0) {
-            Monster currentMonster = player.getCurrentMonster();
+        int skillChoice = scanner.nextInt() - 1;
 
+
+
+        if (0 <= skillChoice && skillChoice < skills.size()){
+            this.setTurnOpen(false);
+        }
+
+        if (isTurnOpen()) {
+            setTurnOpen(false);
+        };
+
+        if (enemyChoice == 0) {
             int enemyRandSkill = random.nextInt(2);
             boolean isSuccess = enemyMonster.attack(currentMonster, enemyRandSkill);
             if (!isSuccess){  System.out.println("상대방의 mp가 부족해 공격에 실패했어요!");}
